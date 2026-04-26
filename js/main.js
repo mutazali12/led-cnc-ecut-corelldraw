@@ -195,7 +195,7 @@ async function processDesign() {
     updatePreview(wCm, hCm, computedHoles, holeRmm, ledColorInput.value, textOutlinePathsCm);
     holeCountSpan.textContent = computedHoles.length.toLocaleString('ar-EG');
     procTimeSpan.textContent = elapsed + ' ث';
-    statusMessage.textContent = `✅ ${computedHoles.length} ثقب | شبكة مائلة 45°`;
+    statusMessage.textContent = `✅ ${computedHoles.length} ثقب | شبكة مائلة °`;
     finish();
 }
 

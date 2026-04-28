@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Neon Studio – Mutaz ECut </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.156.1/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.156.1/examples/jsm/"
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-wrap justify-between items-center pb-6 border-b border-slate-700 mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-cyan-400 to-emerald-500 rounded-2xl flex items-center justify-center text-2xl">🌟</div>
+                <h1 class="text-2xl md:text-3xl font-bold">Mutaz <span class="text-cyan-400">LED Neon</span> –  تصميم لافتة مضيئة </h1>
+            </div>
+            <button id="btn-download-dxf" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                تحميل DXF (CNC)
+            </button>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- لوحة التحكم -->
+            <div class="lg:col-span-1 glass-panel p-5 rounded-2xl space-y-5 border border-slate-700">
+                <h2 class="text-xl font-semibold text-cyan-300 mb-2">⚙️ إعدادات التصميم</h2>
+                <div>
+                    <label>📁 رفع خط مخصص (TTF/OTF)</label>
+                    <input type="file" id="font-upload" accept=".ttf,.otf" class="w-full text-sm">
+                </div>
+                <div>
+                    <label>✍️ النص (عربي / إنجليزي)</label>
+                    <textarea id="text-input" rows="3" class="w-full p-2 rounded-lg border resize-none text-right">معتز</textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label>📏 العرض (سم)</label><input type="number" id="width-cm" value="100" step="5" class="w-full"></div>
+                    <div><label>📐 الارتفاع (سم)</label><input type="number" id="height-cm" value="60" step="5" class="w-full"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label>🔘 قطر الثقب (مم)</label><input type="number" id="hole-radius" value="3" step="0.2" class="w-full"></div>
+                    <div><label>📏 التباعد (مم)</label><input type="number" id="hole-spacing" value="15" step="1" class="w-full"></div>
+                </div>
+                <div>
+                    <label>📏 المسافة من الحافة (مم)</label>
+                    <input type="number" id="edge-offset" value="4" step="1" class="w-full">
+                </div>
+                <div>
+                    <label>🎨 لون الـ LED</label>
+                    <input type="color" id="led-color" value="#00ffff" class="w-full h-10">
+                </div>
+                <button id="btn-process" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-3 rounded-xl font-bold transition mt-2">✨ تحديث المعاينة</button>
+                <div id="progress-container" class="hidden mt-3">
+                    <div class="flex justify-between text-xs"><span id="progress-label">جارٍ المعالجة...</span><span id="progress-percent">0%</span></div>
+                    <div class="progress-bar mt-1"><div id="progress-fill" class="progress-fill"></div></div>
+                    <div id="progress-detail" class="text-xs text-slate-400 mt-1"></div>
+                </div>
+                <div id="status-message" class="text-sm text-center mt-2"></div>
+            </div>
+
+            <!-- المعاينات -->
+            <div class="lg:col-span-2 space-y-8">
+                <div class="bg-slate-800/50 p-4 rounded-2xl">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-sm text-slate-300">🖥️ معاينة 2D (شبكة متعرجة °)</h3>
+                        <span id="hole-count" class="text-emerald-400 text-sm font-mono">0 ثقب</span>
+                    </div>
+                    <div class="bg-white rounded-xl p-2 flex justify-center overflow-auto">
+                        <canvas id="main-canvas" width="600" height="400" style="max-width:100%; height:auto;"></canvas>
+                    </div>
+                    <div class="flex justify-between text-xs text-slate-400 mt-2"><span>⚡ وقت المعالجة: <span id="proc-time">-</span> ث</span></div>
+                </div>
+                <div class="bg-slate-800/50 p-4 rounded-2xl">
+                    <h3 class="text-sm text-slate-300 mb-2">🎮 معاينة ثلاثية الأبعاد (Three.js)</h3>
+                    <div id="three-container" class="bg-black w-full h-[420px] rounded-xl overflow-hidden relative">
+                        <div id="loader-3d" class="loader hidden">جاري تحميل المحرك...</div>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-2 text-center">🖱️    Mutaz Ali 0912500618   </p>
+                </div>
+            </div>
+        </div>
+        <div class="text-center mt-8 text-slate-500 text-xs">LED Neon Studio –   ادخل كلمة كلمة لأداء افضل تأكد من قطر الدوائر و عدل مقياس الرسم إذا لزم الأمر    </div>
+    </div>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -3,289 +3,501 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mutaz LED Neon Studio</title>
+    <title>Mutaz LED Neon Studio | شبكة متعرجة 45°</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;600;700&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-clipper@1.0.1/clipper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;600;700&display=swap');
-        
-        body { 
-            font-family: 'Cairo', 'Inter', system-ui, sans-serif; 
-            touch-action: none;
-            overscroll-behavior: none;
-        }
-        .glass { 
-            background: rgba(15, 23, 42, 0.96); 
-            backdrop-filter: blur(20px); 
-        }
-
-        #bottom-sheet {
-            transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
-        }
-        #sheet-handle {
-            width: 45px;
-            height: 5px;
-            background: rgba(255,255,255,0.4);
-            border-radius: 9999px;
-        }
-        #splash-screen { transition: opacity 1.6s ease; }
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+        * { user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Cairo', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; touch-action: none; }
+        .glass { background: rgba(15, 23, 42, 0.96); backdrop-filter: blur(20px); }
+        #bottom-sheet { transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1); will-change: transform; box-shadow: 0 -10px 40px rgba(0,0,0,0.5); }
+        #sheet-handle { width: 45px; height: 5px; background: rgba(255,255,255,0.4); border-radius: 9999px; margin: 0 auto; cursor: grab; }
+        #sheet-handle:active { cursor: grabbing; }
+        canvas { border-radius: 1.5rem; background: white; box-shadow: 0 20px 35px -12px black; }
+        #three-container { border-radius: 1.5rem; background: #000; }
+        input, textarea, select { background: #1e293b; border: 1px solid #475569; border-radius: 1rem; padding: 0.7rem 1rem; color: #e2e8f0; width: 100%; }
+        button:active { transform: scale(0.97); transition: 0.05s; }
+        .loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 30px; font-size: 0.8rem; display: none; z-index: 20; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 overflow-hidden">
+<body class="h-screen flex flex-col">
 
-    <!-- SPLASH SCREEN -->
-    <div id="splash-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-black">
-        <canvas id="splash-canvas" class="absolute inset-0"></canvas>
-        <div class="relative z-10 text-center">
-            <h1 class="text-6xl md:text-7xl font-black tracking-widest bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 bg-clip-text text-transparent">
-                MUTAZ
-            </h1>
-            <p class="text-2xl text-amber-400 mt-3" id="splash-subtitle">LED NEON STUDIO</p>
+<!-- SPLASH SCREEN -->
+<div id="splash-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-black transition-opacity duration-1000">
+    <canvas id="splash-canvas" class="absolute inset-0 w-full h-full"></canvas>
+    <div class="relative z-10 text-center">
+        <h1 class="text-6xl md:text-7xl font-black tracking-widest bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-300 bg-clip-text text-transparent">MUTAZ</h1>
+        <p class="text-2xl text-amber-400 mt-3">LED NEON STUDIO</p>
+    </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" class="hidden flex flex-col h-screen">
+    <!-- Header -->
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-700 h-16 flex items-center justify-between px-5 fixed top-0 left-0 right-0 z-50">
+        <h1 class="text-2xl font-bold">Mutaz <span class="text-cyan-400">LED Neon</span></h1>
+        <button id="btn-3d-reset" class="text-xs bg-slate-700 px-3 py-1 rounded-full">إعادة ضبط الكاميرا</button>
+    </header>
+
+    <!-- Preview Area -->
+    <div class="flex-1 pt-16 pb-28 overflow-auto p-4 space-y-6">
+        <div><h3 class="text-lg mb-2">📐 معاينة 2D (شبكة متعرجة 45°)</h3>
+            <div class="bg-white/10 rounded-2xl p-3"><canvas id="main-canvas" width="800" height="460" class="mx-auto w-full h-auto rounded-2xl shadow-2xl"></canvas></div>
+        </div>
+        <div><h3 class="text-lg mb-2">🎮 معاينة ثلاثية الأبعاد <span class="text-xs text-slate-400">(اسحب بالفأرة / بالإصبع)</span></h3>
+            <div id="three-container" class="w-full h-80 md:h-96 bg-black rounded-2xl overflow-hidden relative"></div>
+        </div>
+        <div class="flex justify-center py-4">
+            <button id="btn-download-dxf" class="bg-emerald-600 hover:bg-emerald-500 px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl active:scale-95 transition">⬇️ تحميل DXF (CNC / راوتر)</button>
         </div>
     </div>
 
-    <!-- MAIN APP -->
-    <div id="main-app" class="hidden flex flex-col h-screen">
-
-        <!-- Top Header -->
-        <header class="bg-slate-900 border-b border-slate-700 h-16 flex items-center px-5 fixed top-0 left-0 right-0 z-50">
-            <h1 id="app-title" class="text-2xl font-bold">Mutaz <span class="text-cyan-400">LED Neon</span></h1>
-        </header>
-
-        <!-- Preview Area -->
-        <div class="flex-1 pt-16 pb-32 overflow-auto p-4 space-y-6" id="preview-area">
-            
-            <!-- 2D Preview -->
-            <div>
-                <h3 id="preview2d-title" class="text-lg mb-3">معاينة 2D</h3>
-                <div class="bg-white rounded-3xl p-4 shadow-inner">
-                    <canvas id="main-canvas" width="800" height="460" class="mx-auto rounded-2xl"></canvas>
-                </div>
-            </div>
-
-            <!-- 3D Preview -->
-            <div>
-                <h3 id="preview3d-title" class="text-lg mb-3">معاينة ثلاثية الأبعاد</h3>
-                <div id="three-container" class="w-full h-[380px] bg-black rounded-3xl overflow-hidden"></div>
-            </div>
-
-            <!-- زر تحميل DXF -->
-            <div class="flex justify-center pt-4">
-                <button id="btn-download-dxf" 
-                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" x2="12" y1="15" y2="3"/>
-                    </svg>
-                    تحميل DXF (CNC)
-                </button>
-            </div>
+    <!-- Bottom Sheet (الإعدادات) -->
+    <div id="bottom-sheet" class="fixed bottom-0 left-0 right-0 bg-slate-900/95 glass rounded-t-3xl border-t border-slate-600 z-50" style="transform: translateY(0%);">
+        <div class="pt-3 pb-2 flex justify-between items-center px-5">
+            <button id="btn-close-sheet" class="text-3xl text-slate-400 hover:text-white transition-all">✕</button>
+            <div id="sheet-handle" class="cursor-grab"></div>
+            <button id="btn-open-sheet" class="text-3xl text-cyan-400 hover:text-cyan-300 transition-all">⚙️</button>
         </div>
-
-        <!-- Bottom Sheet -->
-        <div id="bottom-sheet" class="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-600 rounded-t-3xl glass z-50">
-            
-            <!-- Header of Sheet -->
-            <div class="flex items-center justify-between px-6 pt-4 pb-2">
-                <button id="btn-close-sheet" class="text-3xl text-slate-400 hover:text-white transition">×</button>
-                <div id="sheet-handle" class="cursor-grab active:cursor-grabbing"></div>
-                <button id="btn-open-sheet" class="text-3xl text-cyan-400 hover:text-cyan-300 transition">+</button>
+        <div class="px-5 pb-8 overflow-auto" style="max-height: 75vh;">
+            <h2 class="text-xl font-bold text-cyan-300 mb-5">إعدادات التصميم</h2>
+            <div class="space-y-5">
+                <div><label class="block text-sm text-slate-400 mb-1">📁 رفع خط مخصص (TTF/OTF)</label><input type="file" id="font-upload" accept=".ttf,.otf"></div>
+                <div><label class="block text-sm text-slate-400 mb-1">✍️ النص (عربي/إنجليزي)</label><textarea id="text-input" rows="2" class="text-right">معتز</textarea></div>
+                <div class="grid grid-cols-2 gap-3"><div><label>📏 العرض (سم)</label><input type="number" id="width-cm" value="100" step="5"></div>
+                <div><label>📐 الارتفاع (سم)</label><input type="number" id="height-cm" value="60" step="5"></div></div>
+                <div class="grid grid-cols-2 gap-3"><div><label>🔘 قطر الثقب (مم)</label><input type="number" id="hole-radius" value="3.5" step="0.2"></div>
+                <div><label>📏 التباعد (مم)</label><input type="number" id="hole-spacing" value="14" step="1"></div></div>
+                <div><label>📏 المسافة من الحافة (مم)</label><input type="number" id="edge-offset" value="4" step="0.5"></div>
+                <div><label>🎨 لون الـ LED (نيون)</label><input type="color" id="led-color" value="#00f5ff"></div>
+                <button id="btn-process" class="w-full bg-cyan-600 hover:bg-cyan-500 py-4 rounded-2xl font-bold text-lg mt-2 transition">✨ توليد / تحديث المعاينة</button>
             </div>
-
-            <div class="px-6 pb-8 overflow-auto" style="max-height: calc(82vh - 70px);">
-                <h2 id="settings-title" class="text-xl font-semibold text-cyan-300 mb-6">إعدادات التصميم</h2>
-                
-                <div class="space-y-6">
-                    <div>
-                        <label class="block text-sm text-slate-400 mb-1" id="font-label">رفع خط مخصص (TTF/OTF)</label>
-                        <input type="file" id="font-upload" accept=".ttf,.otf" class="w-full">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm text-slate-400 mb-1" id="text-label">النص (عربي / إنجليزي)</label>
-                        <textarea id="text-input" rows="3" class="w-full p-4 rounded-2xl bg-slate-800 border border-slate-600 text-lg" dir="rtl">معتز</textarea>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm text-slate-400 mb-1" id="width-label">العرض (سم)</label>
-                            <input type="number" id="width-cm" value="100" step="5" class="w-full p-3 rounded-2xl bg-slate-800 border border-slate-600">
-                        </div>
-                        <div><label class="block text-sm text-slate-400 mb-1" id="height-label">الارتفاع (سم)</label>
-                            <input type="number" id="height-cm" value="60" step="5" class="w-full p-3 rounded-2xl bg-slate-800 border border-slate-600">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="block text-sm text-slate-400 mb-1" id="hole-radius-label">قطر الثقب (مم)</label>
-                            <input type="number" id="hole-radius" value="3" step="0.2" class="w-full p-3 rounded-2xl bg-slate-800 border border-slate-600">
-                        </div>
-                        <div><label class="block text-sm text-slate-400 mb-1" id="hole-spacing-label">التباعد (مم)</label>
-                            <input type="number" id="hole-spacing" value="15" step="1" class="w-full p-3 rounded-2xl bg-slate-800 border border-slate-600">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm text-slate-400 mb-1" id="edge-offset-label">المسافة من الحافة (مم)</label>
-                        <input type="number" id="edge-offset" value="4" step="0.5" class="w-full p-3 rounded-2xl bg-slate-800 border border-slate-600">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm text-slate-400 mb-1" id="led-color-label">لون الـ LED</label>
-                        <input type="color" id="led-color" value="#00ffff" class="w-full h-12 rounded-2xl cursor-pointer">
-                    </div>
-
-                    <button id="btn-process" class="w-full bg-cyan-600 hover:bg-cyan-500 py-4 rounded-2xl font-bold text-lg mt-6">
-                        تحديث المعاينة
-                    </button>
-                </div>
-            </div>
+            <div id="status-msg" class="text-sm text-center mt-4 text-slate-300"></div>
+            <div class="mt-4 text-center text-xs text-slate-500">نسخة الشبكة المتعرجة 45° – كل ثقب داخل حدود الحرف فقط</div>
         </div>
     </div>
+</div>
 
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script type="module" src="js/main.js"></script>
+<script>
+    (function(){
+        // ----------------------------- Variables globales -----------------------------
+        let currentFont = null;
+        let computedHoles = [];
+        let textOutlinePathsCm = [];
+        let scene3d, camera3d, renderer3d, controls3d, acrylicMesh, ledPointsMesh, pointLight;
+        let threeContainer = document.getElementById('three-container');
+        let mainCanvas = document.getElementById('main-canvas');
+        let ctx = mainCanvas.getContext('2d');
+        const computationCache = new Map();
 
-    <script>
-        // ====================== SPLASH SCREEN ======================
-        let scene, camera, renderer, particles, time = 0;
+        // UI Elements
+        const textInput = document.getElementById('text-input');
+        const widthInput = document.getElementById('width-cm');
+        const heightInput = document.getElementById('height-cm');
+        const radiusInput = document.getElementById('hole-radius');
+        const spacingInput = document.getElementById('hole-spacing');
+        const edgeOffsetInput = document.getElementById('edge-offset');
+        const ledColorInput = document.getElementById('led-color');
+        const btnProcess = document.getElementById('btn-process');
+        const btnDownload = document.getElementById('btn-download-dxf');
+        const fontUpload = document.getElementById('font-upload');
+        const statusMsg = document.getElementById('status-msg');
 
-        function initSplash() {
-            const canvas = document.getElementById('splash-canvas');
-            renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // ----------------------------- Three.js (النموذج القديم مع OrbitControls) -----------------------------
+        function initThree() {
+            if (!threeContainer) return;
+            scene3d = new THREE.Scene();
+            scene3d.background = new THREE.Color(0x050b1a);
+            scene3d.add(new THREE.AmbientLight(0x404060, 1.2));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+            dirLight.position.set(40, 60, 30);
+            scene3d.add(dirLight);
+            camera3d = new THREE.PerspectiveCamera(50, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 1000);
+            camera3d.position.set(60, 40, 80);
+            renderer3d = new THREE.WebGLRenderer({ antialias: true });
+            renderer3d.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+            threeContainer.appendChild(renderer3d.domElement);
+            controls3d = new THREE.OrbitControls(camera3d, renderer3d.domElement);
+            controls3d.enableDamping = true;
+            controls3d.dampingFactor = 0.07;
+            controls3d.rotateSpeed = 1.2;
+            controls3d.zoomSpeed = 1.2;
+            controls3d.target.set(0, 0, 0);
+            const animate = () => {
+                requestAnimationFrame(animate);
+                controls3d.update();
+                if(pointLight) pointLight.intensity = 9 + Math.sin(Date.now() * 0.004) * 2.2;
+                renderer3d.render(scene3d, camera3d);
+            };
+            animate();
+            window.addEventListener('resize', () => {
+                const w = threeContainer.clientWidth, h = threeContainer.clientHeight;
+                camera3d.aspect = w/h;
+                camera3d.updateProjectionMatrix();
+                renderer3d.setSize(w, h);
+            });
+        }
 
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.z = 42;
-
-            scene.add(new THREE.AmbientLight(0xaaaaaa, 0.7));
-            const light = new THREE.PointLight(0xffdd88, 3.8, 100);
-            light.position.set(10, 25, 35);
-            scene.add(light);
-
-            const count = 1600;
-            const pos = new Float32Array(count * 3);
-            const col = new Float32Array(count * 3);
-
-            for (let i = 0; i < count * 3; i += 3) {
-                const r = 28 + Math.random() * 40;
-                const a = Math.random() * Math.PI * 2;
-                pos[i] = Math.cos(a) * r;
-                pos[i+1] = (Math.random() - 0.5) * 60;
-                pos[i+2] = Math.sin(a) * r;
-
-                col[i] = 1.0; col[i+1] = 0.8; col[i+2] = 0.4;
+        function updateThreePreview(wCm, hCm, holes, holeRadMm, ledColorHex, outlinesCm) {
+            if (!scene3d) return;
+            if (acrylicMesh) scene3d.remove(acrylicMesh);
+            if (ledPointsMesh) scene3d.remove(ledPointsMesh);
+            if (pointLight) scene3d.remove(pointLight);
+            const thickness = 0.7;
+            const r3d = holeRadMm / 10;
+            const color = new THREE.Color(ledColorHex);
+            // شكل اللوحة
+            const shape = new THREE.Shape();
+            shape.moveTo(0,0); shape.lineTo(wCm,0); shape.lineTo(wCm,hCm); shape.lineTo(0,hCm); shape.closePath();
+            // إضافة الثقوب كـ holes في ExtrudeGeometry
+            holes.slice(0, 1800).forEach(h => {
+                const hp = new THREE.Path();
+                hp.absarc(h.x, hCm - h.y, r3d, 0, Math.PI*2, true);
+                shape.holes.push(hp);
+            });
+            const extrudeSet = { depth: thickness, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2 };
+            const geom = new THREE.ExtrudeGeometry(shape, extrudeSet);
+            const material = new THREE.MeshPhysicalMaterial({ color: 0xf8fafc, metalness: 0.05, roughness: 0.1, transmission: 0.82, opacity: 0.38, transparent: true, clearcoat: 0.95 });
+            acrylicMesh = new THREE.Mesh(geom, material);
+            acrylicMesh.position.set(-wCm/2, -hCm/2, -thickness/2);
+            scene3d.add(acrylicMesh);
+            // إطارات النص (خطوط بيضاء للمساعدة)
+            if(outlinesCm && outlinesCm.length){
+                const group = new THREE.Group();
+                outlinesCm.forEach(path => {
+                    if(path.length<2) return;
+                    const pts = path.map(p => new THREE.Vector3(p.x - wCm/2, hCm - p.y - hCm/2, thickness/2+0.03));
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(pts);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+                    group.add(new THREE.Line(lineGeom, lineMat));
+                });
+                scene3d.add(group);
+                window._tmpOutlineGroup = group;
             }
-
-            particles = new THREE.Points(
-                new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3))
-                                      .setAttribute('color', new THREE.BufferAttribute(col, 3)),
-                new THREE.PointsMaterial({ size: 0.75, vertexColors: true, blending: THREE.AdditiveBlending, transparent: true })
-            );
-            scene.add(particles);
-            animateSplash();
+            if(holes.length > 0){
+                const pointsPos = holes.map(h => new THREE.Vector3(h.x - wCm/2, hCm - h.y - hCm/2, -thickness/2 - 0.12));
+                const ptsGeom = new THREE.BufferGeometry().setFromPoints(pointsPos);
+                const ptsMat = new THREE.PointsMaterial({ color, size: r3d * 2.8, transparent: true, blending: THREE.AdditiveBlending });
+                ledPointsMesh = new THREE.Points(ptsGeom, ptsMat);
+                scene3d.add(ledPointsMesh);
+                pointLight = new THREE.PointLight(color, 12, Math.max(wCm, hCm)*2.2);
+                pointLight.position.set(0,0,-thickness-0.1);
+                scene3d.add(pointLight);
+            }
+            // ضبط الكاميرا بناءً على الأبعاد
+            const maxDim = Math.max(wCm, hCm);
+            const dist = maxDim / (2 * Math.tan(50 * Math.PI/360)) + 18;
+            camera3d.position.set(wCm*0.28, hCm*0.2, dist);
+            camera3d.lookAt(0,0,0);
+            controls3d.target.set(0,0,0);
+            controls3d.update();
         }
-
-        function animateSplash() {
-            requestAnimationFrame(animateSplash);
-            time += 0.01;
-            particles.rotation.y = time * 0.2;
-            renderer.render(scene, camera);
+        
+        // ----------------------------- توليد شبكة متعرجة 45 درجة داخل النص -----------------------------
+        async function generateStaggeredGridHoles(text, wCm, hCm, spacingMm, radiusMm, edgeMm) {
+            if(!currentFont) return [];
+            const scale = 5; // بكسل لكل سم
+            const w = Math.round(wCm * scale);
+            const h = Math.round(hCm * scale);
+            mainCanvas.width = w; mainCanvas.height = h;
+            ctx.fillStyle = 'white'; ctx.fillRect(0,0,w,h);
+            // حجم الخط المناسب
+            let fontSize = w / (text.length * 0.7);
+            fontSize = Math.min(fontSize, h*0.82);
+            fontSize = Math.max(fontSize, 10);
+            // توسيط النص
+            const testPath = currentFont.getPath(text, 0, 0, fontSize);
+            const box = testPath.getBoundingBox();
+            const offX = w/2 - (box.x1 + (box.x2-box.x1)/2);
+            const offY = h/2 - (box.y1 + (box.y2-box.y1)/2);
+            // استخراج المسارات للإطار
+            // (من font-handler)
+            const rawOutlines = extractRawOutlines(currentFont, text, fontSize);
+            textOutlinePathsCm = rawOutlines.map(cont => cont.map(p => ({ x: (p.x + offX)/scale, y: (p.y + offY)/scale })));
+            // قناع كامل للحرف
+            const maskCanvas = document.createElement('canvas'); maskCanvas.width = w; maskCanvas.height = h;
+            const mCtx = maskCanvas.getContext('2d');
+            mCtx.fillStyle = '#000000'; mCtx.fillRect(0,0,w,h);
+            mCtx.translate(offX, offY);
+            const fillPath = currentFont.getPath(text, 0, 0, fontSize);
+            fillPath.fill = '#ffffff';
+            fillPath.draw(mCtx);
+            mCtx.setTransform(1,0,0,1,0,0);
+            // قناع داخلي (طرح الحافة)
+            const edgePx = edgeMm * scale / 10;
+            const insetCanvas = document.createElement('canvas');
+            insetCanvas.width = Math.max(1, w - 2*edgePx);
+            insetCanvas.height = Math.max(1, h - 2*edgePx);
+            const iCtx = insetCanvas.getContext('2d');
+            iCtx.fillStyle = '#000000';
+            iCtx.fillRect(0,0,insetCanvas.width, insetCanvas.height);
+            iCtx.translate(offX - edgePx, offY - edgePx);
+            fillPath.fill = '#ffffff';
+            fillPath.draw(iCtx);
+            iCtx.setTransform(1,0,0,1,0,0);
+            // استخراج مزج alpha للمساحة الداخلية
+            const insetData = iCtx.getImageData(0,0,insetCanvas.width,insetCanvas.height).data;
+            const stepPx = Math.max(2, Math.floor(spacingMm * scale / 10));
+            const halfStep = stepPx / 2;
+            const holes = [];
+            for(let y = stepPx; y < h; y += stepPx){
+                const rowOffset = (Math.floor(y / stepPx) % 2 === 0) ? 0 : halfStep;
+                for(let x = rowOffset; x < w; x += stepPx){
+                    const ix = Math.round(x - edgePx);
+                    const iy = Math.round(y - edgePx);
+                    if(ix >=0 && ix < insetCanvas.width && iy >=0 && iy < insetCanvas.height){
+                        const idx = (iy * insetCanvas.width + ix)*4;
+                        if(insetData[idx+3] > 128){
+                            holes.push({ x: x/scale, y: y/scale, cx: x, cy: y });
+                        }
+                    }
+                }
+            }
+            // رسم النص على canvas الأصلي + الثقوب
+            ctx.fillStyle = '#111111';
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, w/2, h/2);
+            const radPx = radiusMm * scale / 10;
+            const ledColor = ledColorInput.value;
+            holes.forEach(h => {
+                ctx.beginPath();
+                ctx.arc(h.cx, h.cy, radPx, 0, Math.PI*2);
+                ctx.fillStyle = ledColor;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.stroke();
+            });
+            return holes;
         }
-
-        // ====================== BOTTOM SHEET ======================
-        let sheetTranslate = 0; // 0 = closed, -70 = open
-
-        function setupBottomSheet() {
+        
+        function extractRawOutlines(font, text, fontSize) {
+            const path = font.getPath(text, 0, 0, fontSize);
+            const outlines = [];
+            let current = [];
+            let pos = {x:0,y:0};
+            for(let cmd of path.commands){
+                if(cmd.type === 'M'){
+                    if(current.length) outlines.push(current);
+                    current = [{ x: cmd.x, y: cmd.y }];
+                    pos = { x: cmd.x, y: cmd.y };
+                } else if(cmd.type === 'L'){
+                    current.push({ x: cmd.x, y: cmd.y });
+                    pos = { x: cmd.x, y: cmd.y };
+                } else if(cmd.type === 'C'){
+                    for(let t=0.05; t<=1; t+=0.05){
+                        const x = (1-t)**3 * pos.x + 3*(1-t)**2*t * cmd.x1 + 3*(1-t)*t**2 * cmd.x2 + t**3 * cmd.x;
+                        const y = (1-t)**3 * pos.y + 3*(1-t)**2*t * cmd.y1 + 3*(1-t)*t**2 * cmd.y2 + t**3 * cmd.y;
+                        current.push({ x, y });
+                    }
+                    pos = { x: cmd.x, y: cmd.y };
+                } else if(cmd.type === 'Z'){
+                    if(current.length) outlines.push(current);
+                    current = [];
+                }
+            }
+            if(current.length) outlines.push(current);
+            return outlines;
+        }
+        
+        // ----------------------------- معالجة واجهة المستخدم الرئيسية -----------------------------
+        async function processDesign() {
+            if(!currentFont){
+                statusMsg.innerText = "⚠️ انتظر تحميل الخط أو ارفع خطاً مخصصاً";
+                return;
+            }
+            const start = performance.now();
+            btnProcess.disabled = true;
+            statusMsg.innerText = "⌛ جاري توليد الشبكة...";
+            const text = textInput.value.trim() || "معتز";
+            const wCm = parseFloat(widthInput.value) || 100;
+            const hCm = parseFloat(heightInput.value) || 60;
+            const rad = parseFloat(radiusInput.value) || 3.5;
+            const spacing = parseFloat(spacingInput.value) || 14;
+            const edge = parseFloat(edgeOffsetInput.value) || 4;
+            const cacheKey = `${text}|${wCm}|${hCm}|${rad}|${spacing}|${edge}|${currentFont.names?.fontFamily?.en || 'font'}`;
+            if(computationCache.has(cacheKey)){
+                const cached = computationCache.get(cacheKey);
+                computedHoles = cached.holes;
+                textOutlinePathsCm = cached.outlines;
+                redrawCanvas2D(computedHoles, wCm, hCm, rad);
+                updateThreePreview(wCm, hCm, computedHoles, rad, ledColorInput.value, textOutlinePathsCm);
+                statusMsg.innerText = `✅ ${computedHoles.length} ثقب (مخزّن)`;
+                btnProcess.disabled = false;
+                return;
+            }
+            computedHoles = await generateStaggeredGridHoles(text, wCm, hCm, spacing, rad, edge);
+            redrawCanvas2D(computedHoles, wCm, hCm, rad);
+            updateThreePreview(wCm, hCm, computedHoles, rad, ledColorInput.value, textOutlinePathsCm);
+            const elapsed = ((performance.now()-start)/1000).toFixed(2);
+            if(computationCache.size > 15) computationCache.delete(computationCache.keys().next().value);
+            computationCache.set(cacheKey, { holes: computedHoles, outlines: textOutlinePathsCm });
+            statusMsg.innerText = `✅ ${computedHoles.length} ثقب – شبكة مائلة 45° (${elapsed} ث)`;
+            btnProcess.disabled = false;
+        }
+        
+        function redrawCanvas2D(holes, wCm, hCm, holeRadMm){
+            const scale = 5;
+            const w = wCm * scale; const h = hCm * scale;
+            mainCanvas.width = w; mainCanvas.height = h;
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,w,h);
+            if(textOutlinePathsCm && textOutlinePathsCm.length){
+                ctx.save();
+                ctx.strokeStyle = '#334155'; ctx.lineWidth = 1.8;
+                textOutlinePathsCm.forEach(path => {
+                    if(path.length<2) return;
+                    ctx.beginPath();
+                    ctx.moveTo(path[0].x*scale, path[0].y*scale);
+                    for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x*scale, path[i].y*scale);
+                    ctx.stroke();
+                });
+                ctx.restore();
+            }
+            const rPx = holeRadMm * scale / 10;
+            const led = ledColorInput.value;
+            holes.forEach(h => {
+                ctx.beginPath();
+                ctx.arc(h.cx, h.cy, rPx, 0, Math.PI*2);
+                ctx.fillStyle = led;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.4; ctx.stroke();
+            });
+            document.getElementById('hole-count')?.remove();
+            const countSpan = document.createElement('span'); countSpan.id = 'hole-count'; countSpan.className = 'text-xs bg-slate-800 px-2 py-1 rounded-full';
+            // لا حاجة لإضافتها في الواجهة ولكن ممكن إظهارها في الـ status
+        }
+        
+        // ----------------------------- تحميل الخط ورفع الملفات -----------------------------
+        async function loadDefaultFont() {
+            // محاولة تحميل خط افتراضي مدمج (Cairo عبر CDN)
+            const fallbackUrl = 'https://fonts.gstatic.com/ea/cairo/v2/Cairo-Regular.ttf';
+            try {
+                const resp = await fetch(fallbackUrl);
+                if(resp.ok){
+                    const buffer = await resp.arrayBuffer();
+                    currentFont = opentype.parse(buffer);
+                    statusMsg.innerText = "✅ الخط الافتراضي (Cairo) جاهز";
+                    processDesign();
+                    return;
+                }
+            } catch(e) {}
+            statusMsg.innerText = "📁 الرجاء رفع خط TTF/OTF لبدء التصميم";
+        }
+        
+        fontUpload.addEventListener('change', (e)=>{
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    currentFont = opentype.parse(ev.target.result);
+                    statusMsg.innerText = `✅ تم تحميل الخط: ${currentFont.names.fontFamily?.en || 'custom'}`;
+                    computationCache.clear();
+                    processDesign();
+                } catch(err) { alert("الخط غير صالح"); }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        
+        // ----------------------------- تصدير DXF -----------------------------
+        function downloadDXF() {
+            if(!computedHoles.length){ alert("لا توجد ثقوب"); return; }
+            const wCm = parseFloat(widthInput.value) || 100;
+            const hCm = parseFloat(heightInput.value) || 60;
+            const rad = parseFloat(radiusInput.value) || 3.5;
+            const textName = textInput.value.trim().replace(/[^a-zA-Z0-9\u0600-\u06FF]/g,'_') || 'Design';
+            const wMm = (wCm*10).toFixed(3);
+            const hMm = (hCm*10).toFixed(3);
+            let dxf = `999\nMutaz LED Neon\n0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1021\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
+            dxf += `0\nLWPOLYLINE\n8\nBOARD\n90\n4\n70\n1\n10\n0\n20\n0\n10\n${wMm}\n20\n0\n10\n${wMm}\n20\n${hMm}\n10\n0\n20\n${hMm}\n`;
+            computedHoles.forEach(h => {
+                const x = (h.x * 10).toFixed(4);
+                const y = (hMm - h.y*10).toFixed(4);
+                dxf += `0\nCIRCLE\n8\nHOLES\n10\n${x}\n20\n${y}\n40\n${rad}\n`;
+            });
+            dxf += `0\nENDSEC\n0\nEOF\n`;
+            const blob = new Blob([dxf], {type:'text/plain'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Neon_${textName}.dxf`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+        
+        // ----------------------------- Bottom Sheet (drag) -----------------------------
+        let sheetTranslate = 0;
+        function setupSheet(){
             const sheet = document.getElementById('bottom-sheet');
             const handle = document.getElementById('sheet-handle');
-
-            let startY = 0;
-            let isDragging = false;
-
-            // Buttons
-            document.getElementById('btn-close-sheet').addEventListener('click', () => {
-                sheetTranslate = 0;
-                sheet.style.transform = `translateY(0%)`;
-            });
-
-            document.getElementById('btn-open-sheet').addEventListener('click', () => {
-                sheetTranslate = -70;
-                sheet.style.transform = `translateY(-70%)`;
-            });
-
-            // Drag Logic (محسن)
-            handle.addEventListener('touchstart', e => {
+            const closeBtn = document.getElementById('btn-close-sheet');
+            const openBtn = document.getElementById('btn-open-sheet');
+            let startY = 0, isDragging = false, startTrans = 0;
+            closeBtn.onclick = () => { sheetTranslate = 0; sheet.style.transform = `translateY(0%)`; };
+            openBtn.onclick = () => { sheetTranslate = -70; sheet.style.transform = `translateY(-70%)`; };
+            handle.addEventListener('touchstart', (e) => {
                 startY = e.touches[0].clientY;
+                startTrans = sheetTranslate;
                 isDragging = true;
                 sheet.style.transition = 'none';
             });
-
-            document.addEventListener('touchmove', e => {
-                if (!isDragging) return;
+            document.addEventListener('touchmove', (e) => {
+                if(!isDragging) return;
                 const diff = (e.touches[0].clientY - startY) / window.innerHeight * 110;
-                let newPos = sheetTranslate + diff;
-                newPos = Math.max(-85, Math.min(10, newPos));
-                sheet.style.transform = `translateY(${newPos}%)`;
+                let np = startTrans + diff;
+                np = Math.max(-85, Math.min(10, np));
+                sheet.style.transform = `translateY(${np}%)`;
             });
-
             document.addEventListener('touchend', () => {
-                if (!isDragging) return;
+                if(!isDragging) return;
                 isDragging = false;
-                sheet.style.transition = 'transform 0.4s cubic-bezier(0.32, 0.72, 0, 1)';
-
-                if (sheetTranslate > -35) {
-                    sheetTranslate = 0;
-                } else {
-                    sheetTranslate = -70;
-                }
+                sheet.style.transition = 'transform 0.35s cubic-bezier(0.2,0.9,0.4,1.1)';
+                if(sheetTranslate > -35) sheetTranslate = 0;
+                else sheetTranslate = -70;
                 sheet.style.transform = `translateY(${sheetTranslate}%)`;
             });
-
-            // Initial state: Peek mode (يظهر طرف القائمة)
-            setTimeout(() => {
-                sheet.style.transform = `translateY(0%)`;
-            }, 500);
+            sheet.style.transform = `translateY(0%)`;
         }
-
-        // ====================== Language ======================
-        let currentLang = 'ar';
-
-        const translations = {
-            ar: { /* ... نفس الترجمات السابقة ... */ },
-            en: { /* ... نفس الترجمات السابقة ... */ }
-        };
-
-        function switchLanguage() {
-            currentLang = currentLang === 'ar' ? 'en' : 'ar';
-            document.documentElement.lang = currentLang;
-            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-            document.getElementById('current-lang').textContent = currentLang.toUpperCase();
-            // يمكن توسيعها لاحقاً
-        }
-
-        // ====================== Init ======================
+        
+        // ----------------------------- Splash + Initialisation -----------------------------
         window.addEventListener('load', () => {
-            initSplash();
-
-            setTimeout(() => {
-                document.getElementById('splash-screen').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('splash-screen').classList.add('hidden');
+            initThree();
+            setupSheet();
+            loadDefaultFont();
+            btnProcess.addEventListener('click', processDesign);
+            btnDownload.addEventListener('click', downloadDXF);
+            document.getElementById('btn-3d-reset')?.addEventListener('click', () => {
+                if(camera3d && controls3d){
+                    camera3d.position.set(60,40,80);
+                    controls3d.target.set(0,0,0);
+                    controls3d.update();
+                }
+            });
+            // حدث التحديث التلقائي عند تغيير الحقول
+            const inputs = ['width-cm','height-cm','hole-radius','hole-spacing','edge-offset','led-color','text-input'];
+            inputs.forEach(id=>{
+                const el = document.getElementById(id);
+                if(el) el.addEventListener('input', ()=>{
+                    clearTimeout(window._deb);
+                    window._deb = setTimeout(()=>processDesign(), 450);
+                });
+            });
+            // إخفاء splash بعد 2.5 ثانية مع ظهور التطبيق
+            setTimeout(()=>{
+                const splash = document.getElementById('splash-screen');
+                splash.style.opacity = '0';
+                setTimeout(()=>{
+                    splash.classList.add('hidden');
                     document.getElementById('main-app').classList.remove('hidden');
-                    setupBottomSheet();
                 }, 800);
             }, 2300);
-
-            document.getElementById('lang-toggle').addEventListener('click', switchLanguage);
         });
-    </script>
+    })();
+</script>
 </body>
 </html>
